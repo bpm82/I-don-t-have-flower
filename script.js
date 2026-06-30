@@ -7,10 +7,10 @@ const horizontalModelFile = 'pot.glb';   // 手を水平にした時用（鉢植
 
 // 💡 モデルのベースサイズ微調整
 const verticalScaleAdjust = 2.0; // 【変更】花びらのサイズを2倍にしました
-const horizontalScaleAdjust = 0.8; 
+const horizontalScaleAdjust = 5.0; 
 
 // 💡 ポット（鉢植え）の高さ調整
-const potOffsetY = 0.4; // 【変更】画面外に消えないよう、ちょうどいい高さに修正しました
+const potOffsetY = 0.0; // 【変更】画面外に消えないよう、ちょうどいい高さに修正しました
 
 // 💡 花びらの初期角度（180度回転＝Math.PI）
 // ※もし「90度（真横）」にしたい場合は Math.PI / 2 に変更してください。
