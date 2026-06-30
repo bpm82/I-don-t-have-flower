@@ -1,12 +1,16 @@
 // ==========================================
-// 1. モデル候補リスト
+// 1. モデルの指定と微調整設定
 // ==========================================
 const modelFolder = 'models/';
-// ⚠️ ここにご自身がアップロードした実際のファイル名を入れてください
-const modelFiles = ['flower1.glb', 'flower2.glb', 'star.glb'];
+const verticalModelFile = 'flower.glb';  // 手を突き出した時用（花びら）
+const horizontalModelFile = 'pot.glb';   // 手を水平にした時用（鉢植え）
+
+// 💡 モデルごとのベースサイズ微調整（ここでバランスをとります）
+const verticalScaleAdjust = 1.0; 
+const horizontalScaleAdjust = 0.8; 
 
 // ==========================================
-// 2. Three.jsの準備 (3Dモデル表示)
+// 2. Three.jsの準備
 // ==========================================
 const canvas = document.getElementById('canvas');
 const renderer = new THREE.WebGLRenderer({ canvas: canvas, alpha: true });
@@ -20,88 +24,46 @@ const light = new THREE.AmbientLight(0xffffff, 1.5);
 scene.add(light);
 
 // ==========================================
-// 3. 起動時に3個（重複なし、足りなければ重複あり）をランダムプリロード
+// 3. モデルの読み込み
 // ==========================================
-function pickRandomModels(files, count) {
-  const pool = [...files];
-  const picked = [];
-  const n = Math.min(count, pool.length);
-  for (let i = 0; i < n; i++) {
-    const idx = Math.floor(Math.random() * pool.length);
-    picked.push(pool.splice(idx, 1)[0]);
-  }
-  while (picked.length < count) {
-    picked.push(files[Math.floor(Math.random() * files.length)]);
-  }
-  return picked;
-}
-
-const PRELOAD_COUNT = 3;
-const selectedFiles = pickRandomModels(modelFiles, PRELOAD_COUNT);
-
 const loader = new THREE.GLTFLoader();
-const loadedModels = []; 
-let loadedReadyCount = 0;
+let verticalModel = null;
+let horizontalModel = null;
 let isReady = false;
+let loadedCount = 0;
 
-// ローディング表示用の簡易UI
 const loadingEl = document.createElement('div');
 loadingEl.textContent = '読み込み中...';
-loadingEl.style.cssText = 'position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);color:#fff;font-family:sans-serif;font-size:24px;z-index:10;';
+loadingEl.style.cssText = 'position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);color:#fff;font-size:24px;z-index:10;';
 document.body.appendChild(loadingEl);
 
-selectedFiles.forEach((fileName) => {
-  loader.load(
-    modelFolder + fileName,
-    (gltf) => {
-      const model = gltf.scene;
-      model.scale.set(0.5, 0.5, 0.5);
-      model.visible = false;
-      scene.add(model);
-      loadedModels.push(model);
+function onLoadComplete() {
+  loadedCount++;
+  if (loadedCount === 2) {
+    isReady = true;
+    loadingEl.style.display = 'none';
+  }
+}
 
-      loadedReadyCount++;
-      if (loadedReadyCount === selectedFiles.length) {
-        isReady = true;
-        loadingEl.style.display = 'none';
-        console.log('プリロード完了:', selectedFiles);
-      }
-    },
-    undefined,
-    (error) => {
-      console.error('モデル読み込み失敗:', modelFolder + fileName, error);
-      loadedReadyCount++;
-      if (loadedReadyCount === selectedFiles.length) {
-        isReady = loadedModels.length > 0;
-        loadingEl.textContent = loadedModels.length > 0 ? '' : 'モデルの読み込みに失敗しました';
-        if (loadedModels.length > 0) loadingEl.style.display = 'none';
-      }
-    }
-  );
+loader.load(modelFolder + verticalModelFile, (gltf) => {
+  verticalModel = gltf.scene;
+  verticalModel.visible = false;
+  scene.add(verticalModel);
+  onLoadComplete();
+});
+
+loader.load(modelFolder + horizontalModelFile, (gltf) => {
+  horizontalModel = gltf.scene;
+  horizontalModel.visible = false;
+  scene.add(horizontalModel);
+  onLoadComplete();
 });
 
 // ==========================================
-// 4. 手の検出状態に応じてランダム表示切替え
-// ==========================================
-let currentModel = null;
-let wasHandPresent = false; 
-
-function showRandomModel() {
-  if (!isReady || loadedModels.length === 0) return null;
-  loadedModels.forEach((m) => (m.visible = false));
-  const next = loadedModels[Math.floor(Math.random() * loadedModels.length)];
-  next.visible = true;
-  return next;
-}
-
-// ==========================================
-// 5. MediaPipe Handsの準備 (手のひら感知)
+// 4. MediaPipe Handsの準備とARの計算
 // ==========================================
 const videoElement = document.getElementById('video');
-
-const hands = new Hands({locateFile: (file) => {
-  return `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`;
-}});
+const hands = new Hands({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`});
 
 hands.setOptions({
   maxNumHands: 1,
@@ -110,68 +72,78 @@ hands.setOptions({
   minTrackingConfidence: 0.5
 });
 
-// 💡 カメラがインカメかどうかの判定フラグ（最初はインカメ）
 let isFrontCamera = true; 
 
 hands.onResults((results) => {
   const handPresent = isReady && results.multiHandLandmarks && results.multiHandLandmarks.length > 0;
 
+  if (verticalModel) verticalModel.visible = false;
+  if (horizontalModel) horizontalModel.visible = false;
+
   if (handPresent) {
-    if (!wasHandPresent) {
-      currentModel = showRandomModel();
-    }
+    const landmarks = results.multiHandLandmarks[0];
+    
+    // 使う関節の座標を取得
+    const wrist = landmarks[0];         // 手首
+    const indexMCP = landmarks[5];      // 人差し指の付け根
+    const middleMCP = landmarks[9];     // 中指の付け根
+    const pinkyMCP = landmarks[17];     // 小指の付け根
+
+    // 💡 [改善1] 手の向き判定（垂直か水平か）
+    const dy = Math.abs(middleMCP.y - wrist.y);
+    const isVertical = dy > 0.12; // 0.12を基準に切り替え
+    const currentModel = isVertical ? verticalModel : horizontalModel;
 
     if (currentModel) {
       currentModel.visible = true;
 
-      const landmarks = results.multiHandLandmarks[0];
-      const palm = landmarks[9];
+      // 💡 [改善2] 奥行き感知とダイナミックスケール
+      const widthDx = indexMCP.x - pinkyMCP.x;
+      const widthDy = indexMCP.y - pinkyMCP.y;
+      const handWidth = Math.sqrt(widthDx * widthDx + widthDy * widthDy);
+      
+      // モデルに合わせたサイズ調整係数を掛ける
+      const scaleAdjust = isVertical ? verticalScaleAdjust : horizontalScaleAdjust;
+      const finalScale = handWidth * 3.0 * scaleAdjust; // 3.0は全体の基準倍率
+      currentModel.scale.set(finalScale, finalScale, finalScale);
 
-      // 💡 インカメとアウトカメでX座標の動きの向き（+か-か）を反転させる
+      // 💡 [改善3] イン/アウトカメラのX座標反転処理
       const directionX = isFrontCamera ? -1 : 1;
-      const x = directionX * (palm.x - 0.5) * 10;
-      const y = -(palm.y - 0.5) * 10;
+      const x = directionX * (middleMCP.x - 0.5) * 10;
+      const y = -(middleMCP.y - 0.5) * 10;
 
+      // 手のひらの中央に配置
       currentModel.position.set(x, y, 0);
-      currentModel.rotation.y += 0.05;
-    }
-  } else if (currentModel) {
-    currentModel.visible = false;
-  }
 
-  wasHandPresent = handPresent;
+      // 垂直の時は回して、水平の時は固定する演出
+      if (isVertical) {
+        currentModel.rotation.y += 0.05; 
+      } else {
+        currentModel.rotation.y = 0; 
+      }
+    }
+  }
 
   renderer.render(scene, camera);
 });
 
 // ==========================================
-// 6. カメラの起動とイン/アウト切替機能
+// 5. カメラ起動と切り替え機能
 // ==========================================
 let cameraUtils = null;
 const switchBtn = document.getElementById('switchCameraBtn');
 
 function startCamera() {
-  if (cameraUtils) {
-    cameraUtils.stop(); 
-  }
-
+  if (cameraUtils) cameraUtils.stop(); 
   const mode = isFrontCamera ? 'user' : 'environment';
-
   cameraUtils = new Camera(videoElement, {
-    onFrame: async () => {
-      await hands.send({image: videoElement});
-    },
-    width: 1280,
-    height: 720,
-    facingMode: mode
+    onFrame: async () => { await hands.send({image: videoElement}); },
+    width: 1280, height: 720, facingMode: mode
   });
   cameraUtils.start();
-
-  // 見た目の左右反転を調整（インカメは鏡合わせ、アウトカメはそのまま）
   videoElement.style.transform = isFrontCamera ? 'scaleX(-1)' : 'scaleX(1)';
 }
 
-// ボタンを押した時の処理
 if (switchBtn) {
   switchBtn.addEventListener('click', () => {
     isFrontCamera = !isFrontCamera; 
@@ -179,5 +151,4 @@ if (switchBtn) {
   });
 }
 
-// 最初のカメラ起動
 startCamera();
