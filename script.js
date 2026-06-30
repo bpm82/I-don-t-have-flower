@@ -6,15 +6,14 @@ const verticalModelFile = 'flower.glb';  // 手を突き出した時用（花び
 const horizontalModelFile = 'pot.glb';   // 手を水平にした時用（鉢植え）
 
 // 💡 モデルのベースサイズ微調整
-const verticalScaleAdjust = 1.0; 
+const verticalScaleAdjust = 2.0; // 【変更】花びらのサイズを2倍にしました
 const horizontalScaleAdjust = 0.8; 
 
-// 💡 [新規] ポット（鉢植え）の高さ調整（画面上の2〜3cmくらい上にずらす）
-const potOffsetY = 12.5; // この数字を大きくするとさらに上に、小さくすると下に行きます
+// 💡 ポット（鉢植え）の高さ調整
+const potOffsetY = 0.4; // 【変更】画面外に消えないよう、ちょうどいい高さに修正しました
 
-// 💡 [新規] 花びらの初期角度（180度回転＝Math.PI）
+// 💡 花びらの初期角度（180度回転＝Math.PI）
 // ※もし「90度（真横）」にしたい場合は Math.PI / 2 に変更してください。
-// ※もし「横に倒したい（Z軸回転）」場合は、下のコードの currentModel.rotation.set() を調整します。
 const flowerRotationY = Math.PI; 
 
 // ==========================================
@@ -115,19 +114,18 @@ hands.onResults((results) => {
       // X, Y座標の計算
       const directionX = isFrontCamera ? -1 : 1;
       const x = directionX * (middleMCP.x - 0.5) * 10;
-      let y = -(middleMCP.y - 0.5) * 10; // const を let に変更
+      let y = -(middleMCP.y - 0.5) * 10;
 
-      // 💡 [変更] 鉢植え（水平）の時だけ、Y座標（高さ）を上にずらす
+      // 鉢植え（水平）の時だけ、Y座標（高さ）を上にずらす
       if (!isVertical) {
         y += potOffsetY; 
       }
 
       currentModel.position.set(x, y, 0);
 
-      // 💡 [変更] くるくる回す処理を削除し、角度を固定する
+      // 角度を固定する
       if (isVertical) {
-        // 花びら：Y軸（縦軸）を中心に180度回転して固定
-        // ※もし横にペタンと倒したい場合は currentModel.rotation.set(0, 0, Math.PI / 2); などにします
+        // 花びら：Y軸を中心に180度回転して固定
         currentModel.rotation.set(0, flowerRotationY, 0);
       } else {
         // 鉢植え：回転させず、そのまま（0度）で固定
@@ -162,3 +160,5 @@ if (switchBtn) {
     startCamera(); 
   });
 }
+
+startCamera();
