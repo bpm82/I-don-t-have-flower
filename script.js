@@ -7,13 +7,14 @@ const horizontalModelFile = 'pot.glb';   // 手を水平にした時用（鉢植
 
 // 💡 モデルのベースサイズ微調整
 const verticalScaleAdjust = 2.0; 
-const horizontalScaleAdjust = 5.0; 
+const horizontalScaleAdjust = 2.5; // 【変更】大きさを半分（5.0から2.5）にしました
 
 // 💡 ポット（鉢植え）の高さ調整
-const potOffsetY = 0.0; 
+const potOffsetY = 1.0; // 【変更】位置を少し上げるために「1.0」にしました（もっと上げたい場合は数値を大きくしてください）
 
-// 💡 花びらの初期角度（180度回転＝Math.PI）
+// 💡 モデルの初期角度（ラジアン単位）
 const flowerRotationY = Math.PI; 
+const potRotationY = Math.PI / 2; // 【追加】90度（真横）に回転させる設定を追加しました
 
 // ==========================================
 // 2. Three.jsの準備
@@ -94,7 +95,7 @@ hands.onResults((results) => {
     const middleMCP = landmarks[9];
     const pinkyMCP = landmarks[17];
 
-    // 🌟 追加・変更部分：手のひらの向き（法線ベクトル）を計算 🌟
+    // 手のひらの向き（法線ベクトル）を計算
     const ax = indexMCP.x - wrist.x;
     const ay = indexMCP.y - wrist.y;
     const az = indexMCP.z - wrist.z;
@@ -111,11 +112,9 @@ hands.onResults((results) => {
     const len = Math.sqrt(nx * nx + ny * ny + nz * nz) || 1;
     const normal = { x: nx / len, y: ny / len, z: nz / len };
 
-    const zWeight = Math.abs(normal.z); // 前後方向の強さ
-    const yWeight = Math.abs(normal.y); // 上下方向の強さ
+    const zWeight = Math.abs(normal.z); 
+    const yWeight = Math.abs(normal.y); 
 
-    // 🌟 ここが「花」と「鉢植え」の判定ライン 🌟
-    // スマホの実機テストで「鉢植え」になりにくい場合は、ここの 1.0 を 1.5 などに変更してください
     const isVertical = zWeight > (yWeight * 1.0); 
     const currentModel = isVertical ? verticalModel : horizontalModel;
 
@@ -148,8 +147,8 @@ hands.onResults((results) => {
         // 花びら：Y軸を中心に180度回転して固定
         currentModel.rotation.set(0, flowerRotationY, 0);
       } else {
-        // 鉢植え：回転させず、そのまま（0度）で固定
-        currentModel.rotation.set(0, 0, 0); 
+        // 鉢植え：【変更】Y軸を中心に90度回転して固定
+        currentModel.rotation.set(0, potRotationY, 0); 
       }
     }
   }
