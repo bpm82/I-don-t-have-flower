@@ -10,7 +10,7 @@ const verticalScaleAdjust = 1.0;
 const horizontalScaleAdjust = 0.8; 
 
 // 💡 [新規] ポット（鉢植え）の高さ調整（画面上の2〜3cmくらい上にずらす）
-const potOffsetY = 5.0; // この数字を大きくするとさらに上に、小さくすると下に行きます
+const potOffsetY = 15.0; // この数字を大きくするとさらに上に、小さくすると下に行きます
 
 // 💡 [新規] 花びらの初期角度（180度回転＝Math.PI）
 // ※もし「90度（真横）」にしたい場合は Math.PI / 2 に変更してください。
