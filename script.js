@@ -2,6 +2,7 @@
 // 1. モデル候補リスト
 // ==========================================
 const modelFolder = 'models/';
+// ⚠️ ここにご自身がアップロードした実際のファイル名を入れてください
 const modelFiles = ['flower1.glb', 'flower2.glb', 'star.glb'];
 
 // ==========================================
@@ -29,7 +30,6 @@ function pickRandomModels(files, count) {
     const idx = Math.floor(Math.random() * pool.length);
     picked.push(pool.splice(idx, 1)[0]);
   }
-  // モデル数がcountより少ない場合は重複ありで埋める
   while (picked.length < count) {
     picked.push(files[Math.floor(Math.random() * files.length)]);
   }
@@ -40,7 +40,7 @@ const PRELOAD_COUNT = 3;
 const selectedFiles = pickRandomModels(modelFiles, PRELOAD_COUNT);
 
 const loader = new THREE.GLTFLoader();
-const loadedModels = []; // {scene, name}
+const loadedModels = []; 
 let loadedReadyCount = 0;
 let isReady = false;
 
@@ -84,11 +84,10 @@ selectedFiles.forEach((fileName) => {
 // 4. 手の検出状態に応じてランダム表示切替え
 // ==========================================
 let currentModel = null;
-let wasHandPresent = false; // 直前フレームで手があったか（検出"瞬間"判定用）
+let wasHandPresent = false; 
 
 function showRandomModel() {
   if (!isReady || loadedModels.length === 0) return null;
-  // 全部いったん非表示
   loadedModels.forEach((m) => (m.visible = false));
   const next = loadedModels[Math.floor(Math.random() * loadedModels.length)];
   next.visible = true;
@@ -111,11 +110,13 @@ hands.setOptions({
   minTrackingConfidence: 0.5
 });
 
+// 💡 カメラがインカメかどうかの判定フラグ（最初はインカメ）
+let isFrontCamera = true; 
+
 hands.onResults((results) => {
   const handPresent = isReady && results.multiHandLandmarks && results.multiHandLandmarks.length > 0;
 
   if (handPresent) {
-    // 手なし→手あり の瞬間だけランダムに選び直す
     if (!wasHandPresent) {
       currentModel = showRandomModel();
     }
@@ -126,7 +127,9 @@ hands.onResults((results) => {
       const landmarks = results.multiHandLandmarks[0];
       const palm = landmarks[9];
 
-      const x = (-(palm.x - 0.5)) * 10;
+      // 💡 インカメとアウトカメでX座標の動きの向き（+か-か）を反転させる
+      const directionX = isFrontCamera ? -1 : 1;
+      const x = directionX * (palm.x - 0.5) * 10;
       const y = -(palm.y - 0.5) * 10;
 
       currentModel.position.set(x, y, 0);
@@ -141,12 +144,40 @@ hands.onResults((results) => {
   renderer.render(scene, camera);
 });
 
-// カメラの起動
-const cameraUtils = new Camera(videoElement, {
-  onFrame: async () => {
-    await hands.send({image: videoElement});
-  },
-  width: 1280,
-  height: 720
-});
-cameraUtils.start();
+// ==========================================
+// 6. カメラの起動とイン/アウト切替機能
+// ==========================================
+let cameraUtils = null;
+const switchBtn = document.getElementById('switchCameraBtn');
+
+function startCamera() {
+  if (cameraUtils) {
+    cameraUtils.stop(); 
+  }
+
+  const mode = isFrontCamera ? 'user' : 'environment';
+
+  cameraUtils = new Camera(videoElement, {
+    onFrame: async () => {
+      await hands.send({image: videoElement});
+    },
+    width: 1280,
+    height: 720,
+    facingMode: mode
+  });
+  cameraUtils.start();
+
+  // 見た目の左右反転を調整（インカメは鏡合わせ、アウトカメはそのまま）
+  videoElement.style.transform = isFrontCamera ? 'scaleX(-1)' : 'scaleX(1)';
+}
+
+// ボタンを押した時の処理
+if (switchBtn) {
+  switchBtn.addEventListener('click', () => {
+    isFrontCamera = !isFrontCamera; 
+    startCamera(); 
+  });
+}
+
+// 最初のカメラ起動
+startCamera();
