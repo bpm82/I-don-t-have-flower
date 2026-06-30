@@ -10,7 +10,7 @@ const verticalScaleAdjust = 2.0;
 const horizontalScaleAdjust = 2.5; // 【変更】大きさを半分（5.0から2.5）にしました
 
 // 💡 ポット（鉢植え）の高さ調整
-const potOffsetY = 1.0; // 【変更】位置を少し上げるために「1.0」にしました（もっと上げたい場合は数値を大きくしてください）
+const potOffsetY = -1.0; // 【変更】位置を少し上げるために「1.0」にしました（もっと上げたい場合は数値を大きくしてください）
 
 // 💡 モデルの初期角度（ラジアン単位）
 const flowerRotationY = Math.PI; 
