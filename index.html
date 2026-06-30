@@ -2,15 +2,13 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <title>手のひらARランダム表示</title>
+  <title>手のひらAR - お花と鉢植え</title>
   <style>
     body { margin: 0; overflow: hidden; background-color: #000; }
     /* 初期状態は左右反転（JavaScriptで動的に切り替わります） */
     #video { position: absolute; width: 100vw; height: 100vh; object-fit: cover; transform: scaleX(-1); }
-    /* 3Dモデルを表示するキャンバス */
     #canvas { position: absolute; width: 100vw; height: 100vh; pointer-events: none; }
     
-    /* カメラ切替ボタンのスタイル */
     #switchCameraBtn {
       position: absolute;
       bottom: 20px;
@@ -33,7 +31,6 @@
 </head>
 <body>
   <button id="switchCameraBtn">🔄 カメラ切替</button>
-
   <video id="video" autoplay playsinline></video>
   <canvas id="canvas"></canvas>
 
