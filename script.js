@@ -5,9 +5,17 @@ const modelFolder = 'models/';
 const verticalModelFile = 'flower.glb';  // 手を突き出した時用（花びら）
 const horizontalModelFile = 'pot.glb';   // 手を水平にした時用（鉢植え）
 
-// 💡 モデルごとのベースサイズ微調整（ここでバランスをとります）
+// 💡 モデルのベースサイズ微調整
 const verticalScaleAdjust = 1.0; 
 const horizontalScaleAdjust = 0.8; 
+
+// 💡 [新規] ポット（鉢植え）の高さ調整（画面上の2〜3cmくらい上にずらす）
+const potOffsetY = 1.5; // この数字を大きくするとさらに上に、小さくすると下に行きます
+
+// 💡 [新規] 花びらの初期角度（180度回転＝Math.PI）
+// ※もし「90度（真横）」にしたい場合は Math.PI / 2 に変更してください。
+// ※もし「横に倒したい（Z軸回転）」場合は、下のコードの currentModel.rotation.set() を調整します。
+const flowerRotationY = Math.PI; 
 
 // ==========================================
 // 2. Three.jsの準備
@@ -83,43 +91,47 @@ hands.onResults((results) => {
   if (handPresent) {
     const landmarks = results.multiHandLandmarks[0];
     
-    // 使う関節の座標を取得
-    const wrist = landmarks[0];         // 手首
-    const indexMCP = landmarks[5];      // 人差し指の付け根
-    const middleMCP = landmarks[9];     // 中指の付け根
-    const pinkyMCP = landmarks[17];     // 小指の付け根
+    const wrist = landmarks[0];
+    const indexMCP = landmarks[5];
+    const middleMCP = landmarks[9];
+    const pinkyMCP = landmarks[17];
 
-    // 💡 [改善1] 手の向き判定（垂直か水平か）
     const dy = Math.abs(middleMCP.y - wrist.y);
-    const isVertical = dy > 0.12; // 0.12を基準に切り替え
+    const isVertical = dy > 0.12; 
     const currentModel = isVertical ? verticalModel : horizontalModel;
 
     if (currentModel) {
       currentModel.visible = true;
 
-      // 💡 [改善2] 奥行き感知とダイナミックスケール
+      // 奥行き感知とダイナミックスケール
       const widthDx = indexMCP.x - pinkyMCP.x;
       const widthDy = indexMCP.y - pinkyMCP.y;
       const handWidth = Math.sqrt(widthDx * widthDx + widthDy * widthDy);
       
-      // モデルに合わせたサイズ調整係数を掛ける
       const scaleAdjust = isVertical ? verticalScaleAdjust : horizontalScaleAdjust;
-      const finalScale = handWidth * 3.0 * scaleAdjust; // 3.0は全体の基準倍率
+      const finalScale = handWidth * 3.0 * scaleAdjust; 
       currentModel.scale.set(finalScale, finalScale, finalScale);
 
-      // 💡 [改善3] イン/アウトカメラのX座標反転処理
+      // X, Y座標の計算
       const directionX = isFrontCamera ? -1 : 1;
       const x = directionX * (middleMCP.x - 0.5) * 10;
-      const y = -(middleMCP.y - 0.5) * 10;
+      let y = -(middleMCP.y - 0.5) * 10; // const を let に変更
 
-      // 手のひらの中央に配置
+      // 💡 [変更] 鉢植え（水平）の時だけ、Y座標（高さ）を上にずらす
+      if (!isVertical) {
+        y += potOffsetY; 
+      }
+
       currentModel.position.set(x, y, 0);
 
-      // 垂直の時は回して、水平の時は固定する演出
+      // 💡 [変更] くるくる回す処理を削除し、角度を固定する
       if (isVertical) {
-        currentModel.rotation.y += 0.05; 
+        // 花びら：Y軸（縦軸）を中心に180度回転して固定
+        // ※もし横にペタンと倒したい場合は currentModel.rotation.set(0, 0, Math.PI / 2); などにします
+        currentModel.rotation.set(0, flowerRotationY, 0);
       } else {
-        currentModel.rotation.y = 0; 
+        // 鉢植え：回転させず、そのまま（0度）で固定
+        currentModel.rotation.set(0, 0, 0); 
       }
     }
   }
@@ -150,5 +162,3 @@ if (switchBtn) {
     startCamera(); 
   });
 }
-
-startCamera();
