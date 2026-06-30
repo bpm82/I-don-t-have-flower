@@ -5,10 +5,26 @@
   <title>手のひらARランダム表示</title>
   <style>
     body { margin: 0; overflow: hidden; background-color: #000; }
-    /* カメラ映像を左右反転させて鏡のようにする */
+    /* 初期状態は左右反転（JavaScriptで動的に切り替わります） */
     #video { position: absolute; width: 100vw; height: 100vh; object-fit: cover; transform: scaleX(-1); }
     /* 3Dモデルを表示するキャンバス */
     #canvas { position: absolute; width: 100vw; height: 100vh; pointer-events: none; }
+    
+    /* カメラ切替ボタンのスタイル */
+    #switchCameraBtn {
+      position: absolute;
+      bottom: 20px;
+      right: 20px;
+      z-index: 100;
+      padding: 12px 24px;
+      font-size: 16px;
+      border-radius: 8px;
+      font-weight: bold;
+      cursor: pointer;
+      background-color: rgba(255, 255, 255, 0.8);
+      border: none;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+    }
   </style>
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
@@ -16,6 +32,8 @@
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
 </head>
 <body>
+  <button id="switchCameraBtn">🔄 カメラ切替</button>
+
   <video id="video" autoplay playsinline></video>
   <canvas id="canvas"></canvas>
 
