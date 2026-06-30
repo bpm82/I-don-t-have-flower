@@ -6,14 +6,13 @@ const verticalModelFile = 'flower.glb';  // 手を突き出した時用（花び
 const horizontalModelFile = 'pot.glb';   // 手を水平にした時用（鉢植え）
 
 // 💡 モデルのベースサイズ微調整
-const verticalScaleAdjust = 2.0; // 【変更】花びらのサイズを2倍にしました
+const verticalScaleAdjust = 2.0; 
 const horizontalScaleAdjust = 5.0; 
 
 // 💡 ポット（鉢植え）の高さ調整
-const potOffsetY = 0.0; // 【変更】画面外に消えないよう、ちょうどいい高さに修正しました
+const potOffsetY = 0.0; 
 
 // 💡 花びらの初期角度（180度回転＝Math.PI）
-// ※もし「90度（真横）」にしたい場合は Math.PI / 2 に変更してください。
 const flowerRotationY = Math.PI; 
 
 // ==========================================
@@ -95,8 +94,29 @@ hands.onResults((results) => {
     const middleMCP = landmarks[9];
     const pinkyMCP = landmarks[17];
 
-    const dy = Math.abs(middleMCP.y - wrist.y);
-    const isVertical = dy > 0.12; 
+    // 🌟 追加・変更部分：手のひらの向き（法線ベクトル）を計算 🌟
+    const ax = indexMCP.x - wrist.x;
+    const ay = indexMCP.y - wrist.y;
+    const az = indexMCP.z - wrist.z;
+    
+    const bx = pinkyMCP.x - wrist.x;
+    const by = pinkyMCP.y - wrist.y;
+    const bz = pinkyMCP.z - wrist.z;
+    
+    // 外積で法線を求める
+    const nx = ay * bz - az * by;
+    const ny = az * bx - ax * bz;
+    const nz = ax * by - ay * bx;
+    
+    const len = Math.sqrt(nx * nx + ny * ny + nz * nz) || 1;
+    const normal = { x: nx / len, y: ny / len, z: nz / len };
+
+    const zWeight = Math.abs(normal.z); // 前後方向の強さ
+    const yWeight = Math.abs(normal.y); // 上下方向の強さ
+
+    // 🌟 ここが「花」と「鉢植え」の判定ライン 🌟
+    // スマホの実機テストで「鉢植え」になりにくい場合は、ここの 1.0 を 1.5 などに変更してください
+    const isVertical = zWeight > (yWeight * 1.0); 
     const currentModel = isVertical ? verticalModel : horizontalModel;
 
     if (currentModel) {
