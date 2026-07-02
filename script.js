@@ -73,7 +73,7 @@ const videoElement = document.getElementById('video');
 const hands = new Hands({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`});
 
 hands.setOptions({
-  maxNumHands: 1,
+  maxNumHands: 10,
   modelComplexity: 1,
   minDetectionConfidence: 0.5,
   minTrackingConfidence: 0.5
@@ -81,15 +81,50 @@ hands.setOptions({
 
 let isFrontCamera = true; 
 
+function createPlacedModel(sourceModel) {
+  if (!sourceModel) return null;
+  const model = sourceModel.clone(true);
+  model.visible = false;
+  scene.add(model);
+  return model;
+}
+
+const MAX_RENDER_HANDS = 10;
+const handPlacedModels = Array.from({ length: MAX_RENDER_HANDS }, () => ({ vertical: null, horizontal: null }));
+
+function ensureModelsForHand(index) {
+  const pair = handPlacedModels[index];
+  if (!pair) return;
+
+  if (!pair.vertical && verticalModel) {
+    pair.vertical = createPlacedModel(verticalModel);
+  }
+
+  if (!pair.horizontal && horizontalModel) {
+    pair.horizontal = createPlacedModel(horizontalModel);
+  }
+}
+
+function hideAllHandModels() {
+  for (const pair of handPlacedModels) {
+    if (pair.vertical) pair.vertical.visible = false;
+    if (pair.horizontal) pair.horizontal.visible = false;
+  }
+}
+
 hands.onResults((results) => {
-  const handPresent = isReady && results.multiHandLandmarks && results.multiHandLandmarks.length > 0;
+  const landmarksList = isReady && results.multiHandLandmarks ? results.multiHandLandmarks : [];
 
-  if (verticalModel) verticalModel.visible = false;
-  if (horizontalModel) horizontalModel.visible = false;
+  hideAllHandModels();
 
-  if (handPresent) {
-    const landmarks = results.multiHandLandmarks[0];
-    
+  const maxHandsToRender = Math.min(landmarksList.length, MAX_RENDER_HANDS);
+
+  for (let handIndex = 0; handIndex < maxHandsToRender; handIndex++) {
+    ensureModelsForHand(handIndex);
+
+    const landmarks = landmarksList[handIndex];
+    const pair = handPlacedModels[handIndex];
+
     const wrist = landmarks[0];
     const indexMCP = landmarks[5];
     const middleMCP = landmarks[9];
@@ -116,40 +151,40 @@ hands.onResults((results) => {
     const yWeight = Math.abs(normal.y); 
 
     const isVertical = zWeight > (yWeight * 1.0); 
-    const currentModel = isVertical ? verticalModel : horizontalModel;
+    const currentModel = isVertical ? pair.vertical : pair.horizontal;
 
-    if (currentModel) {
-      currentModel.visible = true;
+    if (!currentModel) continue;
 
-      // 奥行き感知とダイナミックスケール
-      const widthDx = indexMCP.x - pinkyMCP.x;
-      const widthDy = indexMCP.y - pinkyMCP.y;
-      const handWidth = Math.sqrt(widthDx * widthDx + widthDy * widthDy);
-      
-      const scaleAdjust = isVertical ? verticalScaleAdjust : horizontalScaleAdjust;
-      const finalScale = handWidth * 3.0 * scaleAdjust; 
-      currentModel.scale.set(finalScale, finalScale, finalScale);
+    currentModel.visible = true;
 
-      // X, Y座標の計算
-      const directionX = isFrontCamera ? -1 : 1;
-      const x = directionX * (middleMCP.x - 0.5) * 10;
-      let y = -(middleMCP.y - 0.5) * 10;
+    // 奥行き感知とダイナミックスケール
+    const widthDx = indexMCP.x - pinkyMCP.x;
+    const widthDy = indexMCP.y - pinkyMCP.y;
+    const handWidth = Math.sqrt(widthDx * widthDx + widthDy * widthDy);
+    
+    const scaleAdjust = isVertical ? verticalScaleAdjust : horizontalScaleAdjust;
+    const finalScale = handWidth * 3.0 * scaleAdjust; 
+    currentModel.scale.set(finalScale, finalScale, finalScale);
 
-      // 鉢植え（水平）の時だけ、Y座標（高さ）を上にずらす
-      if (!isVertical) {
-        y += potOffsetY; 
-      }
+    // X, Y座標の計算
+    const directionX = isFrontCamera ? -1 : 1;
+    const x = directionX * (middleMCP.x - 0.5) * 10;
+    let y = -(middleMCP.y - 0.5) * 10;
 
-      currentModel.position.set(x, y, 0);
+    // 鉢植え（水平）の時だけ、Y座標（高さ）を上にずらす
+    if (!isVertical) {
+      y += potOffsetY; 
+    }
 
-      // 角度を固定する
-      if (isVertical) {
-        // 花びら：Y軸を中心に180度回転して固定
-        currentModel.rotation.set(0, flowerRotationY, 0);
-      } else {
-        // 鉢植え：【変更】Y軸を中心に90度回転して固定
-        currentModel.rotation.set(0, potRotationY, 0); 
-      }
+    currentModel.position.set(x, y, 0);
+
+    // 角度を固定する
+    if (isVertical) {
+      // 花びら：Y軸を中心に180度回転して固定
+      currentModel.rotation.set(0, flowerRotationY, 0);
+    } else {
+      // 鉢植え：Y軸を中心に90度回転して固定
+      currentModel.rotation.set(0, potRotationY, 0); 
     }
   }
 
